@@ -23,10 +23,15 @@ function dmcm_run_action_on_service(){
 }
 
 function dmcm_run_logleveller(){
-  local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
-  local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
+  if [[ $(id -u) -eq "0" ]]; then
+    local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
+    local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
 
-  $script -u localhost:$port $*
+    $script -u localhost:$port $*
+  else
+    dmcm_error "You must be root to do that."
+    return 1
+  fi
 }
 
 function dmcm_get_loglevel(){

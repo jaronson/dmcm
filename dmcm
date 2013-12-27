@@ -3,7 +3,7 @@ set -u
 
 INIT_DIR="/etc/init.d"
 GETOPT="/usr/bin/getopt"
-SED=sed
+SED="/bin/sed"
 
 DMCM_PREFIX=
 DMCM_SERVICE_DIR=
@@ -62,7 +62,7 @@ function dmcm_init(){
   [[ -z $DMCM_PREFIX ]] && DMCM_PREFIX=dmcm
 
   for s in `ls ${INIT_DIR}/${DMCM_PREFIX}-*`; do
-    sf=`echo \`basename $s\` | sed "s/^${DMCM_PREFIX}-//"`
+    sf=`echo \`basename $s\` | $SED "s/^${DMCM_PREFIX}-//"`
     DMCM_AV_SERVICES="$DMCM_AV_SERVICES $sf"
   done
 
@@ -149,7 +149,7 @@ function dmcm_generate_sentence(){
       res=$1
       dmcm_value=$3
     else
-      local kv=$(echo $1 | sed "s/ to /=/g" | tr -d ' ')
+      local kv=$(echo $1 | $SED "s/ to /=/g" | tr -d ' ')
       res=$(echo $kv | cut -d'=' -f1)
       dmcm_value=$(echo $kv | cut -d'=' -f2)
     fi
@@ -222,7 +222,7 @@ function dmcm(){
     flag=$arg
   done
 
-  tokens=$(echo $tokens | sed "s/'//g")
+  tokens=$(echo $tokens | $SED "s/'//g")
 
   dmcm_debug "tokens: $tokens"
 
