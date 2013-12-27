@@ -1,4 +1,59 @@
 #!/usr/bin/env bash
+dmcm_set_color_single()
+{
+  case "$1" in
+    # emphasized (bolded) colors
+    (bold)     __buffer+='7' ;;
+    (offbold)  __buffer+='27' ;;
+
+    # regular colors
+    (black)    __buffer+='30' ;;
+    (red)      __buffer+='31' ;;
+    (green)    __buffer+='32' ;;
+    (yellow)   __buffer+='33' ;;
+    (blue)     __buffer+='34' ;;
+    (magenta)  __buffer+='35' ;;
+    (cyan)     __buffer+='36' ;;
+    (white)    __buffer+='37' ;;
+    (default)  __buffer+='39' ;;
+
+    # background colors
+    (bblack)   __buffer+='40' ;;
+    (bred)     __buffer+='41' ;;
+    (bgreen)   __buffer+='42' ;;
+    (byellow)  __buffer+='43' ;;
+    (bblue)    __buffer+='44' ;;
+    (bmagenta) __buffer+='45' ;;
+    (bcyan)    __buffer+='46' ;;
+    (bwhite)   __buffer+='47' ;;
+    (bdefault) __buffer+='49' ;;
+
+    # Reset
+    (*)        __buffer+='0' ;;
+  esac
+}
+
+dmcm_set_color()
+{
+  typeset __buffer __variable
+  __buffer=$'\E['
+  __variable="$1"
+  shift
+  while
+    (( $# ))
+  do
+    dmcm_set_color_single "$1"
+    shift
+    if (( $# ))
+    then __buffer+=';'
+    fi
+  done
+  __buffer+='m'
+  if [[ "${__variable}" == "" || "${__variable}" == "print" ]]
+  then printf "${__buffer}"
+  else eval "${__variable}='${__buffer}'"
+  fi
+}
 function dmcm_format_rows(){
   local rows=
   local row=
@@ -14,15 +69,36 @@ function dmcm_format_rows(){
   echo "  $rows"
 }
 
+case "${TERM:-dumb}" in
+  (dumb|unknown)
+    dmcm_error_clr=""
+    dmcm_warn_clr=""
+    dmcm_debug_clr=""
+    dmcm_notify_clr=""
+    dmcm_reset_clr=""
+    ;;
+  (*)
+    dmcm_set_color dmcm_error_clr  "${dmcm_error_color:-red}"
+    dmcm_set_color dmcm_warn_clr   "${dmcm_warn_color:-yellow}"
+    dmcm_set_color dmcm_debug_clr  "${dmcm_debug_color:-magenta}"
+    dmcm_set_color dmcm_notify_clr "${dmcm_notify_color:-green}"
+    dmcm_set_color dmcm_reset_clr  "${dmcm_reset_color:-reset}"
+    ;;
+esac
+
 function dmcm_debug(){
   [[ "$dmcm_debug_flag" -eq "1" ]] || return 0
   printf "[${FUNCNAME[1]}] %b" "$*\n" >&2
 }
 
 function dmcm_error(){
-  printf "%b" "$*\nTry: dmcm help <service, resource>\n" >&2
+  printf "%b" "${dmcm_error_clr:-}$*${dmcm_reset_clr:-}\n" >&2
 }
 
 function dmcm_out(){
   printf "$*\n"
+}
+
+function dmcm_print_columns(){
+  false
 }

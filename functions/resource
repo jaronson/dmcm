@@ -108,7 +108,7 @@ function dmcm_rm_logs(){
 }
 
 function dmcm_tail_logs(){
-  echo $* | xargs tail -f
+  echo $* | xargs tail -n200 -f
 }
 
 function dmcm_view_logs(){

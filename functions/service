@@ -1,14 +1,25 @@
 #!/usr/bin/env bash
 
 function dmcm_run_action_on_service(){
-  local cmd
-  local stat
-  local pid
+  local fmt='"%-20s %-10s %-10s %s\n", $2, $1, $3, $4'
+  local cmd=
+  local stat=
+  local pid=
+  local out=
+
+  [ "$dmcm_action" = "status" ] && echo "STATUS SERVICE PID UPTIME" | awk "{ printf $fmt }"
 
   for sv in $dmcm_service; do
     cmd="${INIT_DIR}/${DMCM_PREFIX}-${sv} $dmcm_action"
 
-    $cmd
+    if [ "$dmcm_action" = "status" ]; then
+      out=$($cmd | $SED "s/(\|)\|:\|;//g" | awk '{ print $1, $2, $4, $5 }' | $SED "s/normally\|up/-/g")
+      echo $out | awk "{ printf $fmt }" |\
+        $SED "s/ \(run\)/ ${dmcm_notify_clr}\1${dmcm_reset_clr}/g" |\
+        $SED "s/ \(down\)/ ${dmcm_error_clr}\1${dmcm_reset_clr}/g"
+    else
+      $cmd
+    fi
 
     if [ "$dmcm_action" = "stop" -o "$dmcm_action" = "restart" ]; then
       stat=$(${INIT_DIR}/${DMCM_PREFIX}-${sv} status)
@@ -16,8 +27,7 @@ function dmcm_run_action_on_service(){
       echo $stat | egrep "want down, got TERM" &&\
         pid=`echo $stat | awk '{ print $5 }' | cut -d\) -f1` &&\
         echo "force killing $pid" &&\
-        sv ${DMCM_PREFIX}-$sv forceshutdown &&\
-        dmcm start $sv
+        sv force-shutdown ${DMCM_PREFIX}-$sv
     fi
   done
 }
@@ -35,7 +45,28 @@ function dmcm_run_logleveller(){
 }
 
 function dmcm_get_loglevel(){
-  false
+  for sv in $dmcm_service; do
+    local f="${DMCM_SERVICE_DIR}/$sv/resources/log4j.xml"
+    [[ -e $f ]] || continue
+
+    local re=$(grep -e 'category name="\(.*\)"' $f | $SED 's/.*name="\(.*\)".*/\1/g' | cut -d' ' -f1 | sed 's/"//g' | xargs | tr ' ' '|')
+
+    printf "\n$sv\n"
+
+    for line in $(dmcm_run_logleveller getlevel -f "log4j:($re)" | $SED "s/ -> /|/g"); do
+      local ns=$(echo $line | cut -d'|' -f1)
+      local v=$(echo $line | cut -d'|' -f2)
+
+      case $v in
+        WARN)  v="${dmcm_warn_clr}$v${dmcm_reset_clr}" ;;
+        DEBUG) v="${dmcm_debug_clr}$v${dmcm_reset_clr}" ;;
+        ERROR) v="${dmcm_error_clr}$v${dmcm_reset_clr}" ;;
+        INFO)  v="${dmcm_notify_clr}$v${dmcm_reset_clr}" ;;
+      esac
+
+      echo "$ns $v" | awk '{ printf "%-50s %s\n", $1, $2 }' | tr ' ' '.'
+    done
+  done
 }
 
 function dmcm_set_loglevel(){
@@ -45,5 +76,5 @@ function dmcm_set_loglevel(){
   echo ${levels} | grep -i -w "$dmcm_value" > /dev/null
   [ $? != "0" ] && dmcm_error "Invalid loglevel '$value' given.\nAvailable levels:\n$(dmcm_format_rows $levels)" && return 1
 
-  dmcm_run_logleveller $value 'log4j:es.*'
+  dmcm_run_logleveller setlevel $value 'log4j:es.*'
 }

@@ -1,4 +1,4 @@
-dmcm-servicelogs
+dmcm servicelogs
 =======
 
 DESCRIPTION

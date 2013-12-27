@@ -1,4 +1,4 @@
-$ dmcm get { %s } { loglevel } = <value>
+$ dmcm get <services> { loglevel }
 =======
 
 DESCRIPTION

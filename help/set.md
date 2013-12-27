@@ -1,4 +1,4 @@
-$ dmcm set { %s } { loglevel } { =, to } <value>
+$ dmcm set <service> { loglevel } { =, to } <value>
 =======
 
 DESCRIPTION

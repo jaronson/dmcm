@@ -17,6 +17,7 @@ DMCM_SCRIPTPATH=`pwd -P`
 
 source "$DMCM_SCRIPTPATH/functions/logging"
 source "$DMCM_SCRIPTPATH/functions/service"
+source "$DMCM_SCRIPTPATH/functions/attribute"
 source "$DMCM_SCRIPTPATH/functions/resource"
 
 function dmcm_help(){
@@ -68,7 +69,7 @@ function dmcm_init(){
 
   DMCM_SERVICE_DIR="/services"
   DMCM_BASE_DIR="/opt/dmcm-base"
-  DMCM_AV_ACTIONS="clear page restart rm set start status stop tail view"
+  DMCM_AV_ACTIONS="clear get page restart rm set start status stop tail view"
   DMCM_AV_RESOURCES="logs runlogs servicelogs loglevel"
 }
 
@@ -125,7 +126,10 @@ function dmcm_generate_sentence(){
     return 1
   fi
 
-  if [[ "$1" = "all" ]]; then
+  if [[ $# -eq "0" ]]; then
+    dmcm_star=true
+    dmcm_service=$DMCM_AV_SERVICES
+  elif [[ "$1" = "all" ]]; then
     dmcm_star=true
     dmcm_service=$DMCM_AV_SERVICES
     shift
