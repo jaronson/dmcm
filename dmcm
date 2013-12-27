@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -u
 
-INIT_DIR="init.d"
-GETOPT="/usr/local/Cellar/gnu-getopt/1.1.5/bin/getopt"
-SED=gsed
+INIT_DIR="/etc/init.d"
+GETOPT="/usr/bin/getopt"
+SED=sed
 
 DMCM_PREFIX=
 DMCM_SERVICE_DIR=
@@ -178,8 +178,8 @@ function dmcm_generate_sentence(){
   echo $dmcm_sentence
 }
 
-dmcm_debug_flag=
-dmcm_interactive_flag=
+dmcm_debug_flag=0
+dmcm_interactive_flag=0
 dmcm_sentence=
 
 function dmcm(){
@@ -188,10 +188,10 @@ function dmcm(){
   [[ $# -eq "0" ]] && dmcm_help && return 1
   [[ "$1" = "help" ]] && dmcm_help $@ && return 0
 
-  local flag
+  local flag=
   local switchflag=0
-  local tokens
-  local sentence
+  local tokens=
+  local sentence=
 
   local args=`${GETOPT} -o hid -l "help,interactive" -n "dmcm" -- "$@"`
 
@@ -207,10 +207,10 @@ function dmcm(){
         return 0
         ;;
       -i|--interactive)
-        dmcm_interactive_flag=true
+        dmcm_interactive_flag=1
         ;;
       -d|--debug)
-        dmcm_debug_flag=true
+        dmcm_debug_flag=1
         ;;
       \?)
         dmcm_help $args

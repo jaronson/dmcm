@@ -29,9 +29,9 @@ function dmcm_run_action_on_resource(){
 
 function dmcm_run_action_on_logs(){
   local logtype=$1
-  local role
-  local logname
-  local loglist
+  local role=
+  local logname=
+  local loglist=
   local addlog=1
 
   for service in $dmcm_service; do
@@ -70,7 +70,7 @@ function dmcm_run_action_on_logs(){
       local lf
       case $logtype in
       runlogs)
-        lf="${DMCM_BASE_DIR}/sv/dmcm-${role}/log/run/main/current"
+        lf="${DMCM_BASE_DIR}/sv/dmcm-${role}/log/main/current"
         ;;
       *)
         lf="${DMCM_SERVICE_DIR}/$role/logs/${logname}.log"
@@ -109,4 +109,14 @@ function dmcm_rm_logs(){
 
 function dmcm_tail_logs(){
   echo $* | xargs tail -f
+}
+
+function dmcm_view_logs(){
+  which vim > /dev/null
+
+  if [[ $? -eq "0" ]]; then
+    vim -O $*
+  else
+    view $*
+  fi
 }
