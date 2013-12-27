@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+function dmcm_run_action_on_service(){
+  local cmd
+  local stat
+  local pid
+
+  for sv in $dmcm_service; do
+    cmd="${INIT_DIR}/${DMCM_PREFIX}-${sv} $dmcm_action"
+
+    dmcm_out "$cmd"
+
+    $cmd
+
+    if [ "$dmcm_action" = "stop" -o "$dmcm_action" = "restart" ]; then
+      stat=$(${INIT_DIR}/${DMCM_PREFIX}-${sv} status)
+
+      echo $stat | egrep "want down, got TERM" &&\
+        pid=`echo $stat | awk '{ print $5 }' | cut -d\) -f1` &&\
+        echo "force killing $pid" &&\
+        sv ${DMCM_PREFIX}-$sv forceshutdown &&\
+        dmcm start $sv
+    fi
+  done
+}
+
+function dmcm_run_logleveller(){
+  local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
+  local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
+
+  $script -u localhost:$port $*
+}
+
+function dmcm_get_loglevel(){
+  false
+}
+
+function dmcm_set_loglevel(){
+  local levels="OFF FATAL ERROR WARN INFO DEBUG TRACE"
+  local value=$(echo $dmcm_value | tr "[a-z]" "[A-Z]")
+
+  echo ${levels} | grep -i -w "$dmcm_value" > /dev/null
+  [ $? != "0" ] && dmcm_error "Invalid loglevel '$value' given. Available levels: $levels" && return 1
+
+  dmcm_run_logleveller $value 'log4j:es.*'
+}

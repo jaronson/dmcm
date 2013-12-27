@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+function dmcm_run_action_on_resource(){
+  local resource
+  local func
+
+  [[ -z $dmcm_resource ]] && dmcm_resource="logs"
+
+  for resource in $dmcm_resource; do
+    case $resource in
+    logs|runlogs|servicelogs)
+      dmcm_run_action_on_logs $resource
+      ;;
+    *)
+      func=$(dmcm_get_function $dmcm_action $dmcm_resource)
+      type $func > /dev/null 2>&1
+
+      dmcm_debug $func
+
+      if [[ $? -ne 0 ]]; then
+        dmcm_error "Unknown function: $func, called for resource: $resource"
+        return
+      else
+        $func
+      fi
+      ;;
+    esac
+  done
+}
+
+function dmcm_run_action_on_logs(){
+  local logtype=$1
+  local role
+  local logname
+  local loglist
+  local addlog=1
+
+  for service in $dmcm_service; do
+    if [[ "$logtype" = "runlogs" ]]; then
+      role=$service
+      logname=$service
+    else
+      case $service in
+      assign)
+        role=monitor
+        logname=$service
+        ;;
+      publisher|subscriber)
+        role=worker
+        logname="pubsub"
+        ;;
+      worker)
+        role=worker
+        logname=$service
+        ;;
+      *)
+        role=$service
+        logname=$service
+        ;;
+      esac
+    fi
+
+    if [[ "$dmcm_action" = "rm" ]]; then
+      if [[ -z `dmcm status $service | grep '^down'` ]]; then
+        dmcm_notify "must stop $service first"
+        addlog=0
+      fi
+    fi
+
+    if [[ $addlog -eq 1 ]]; then
+      local lf
+      case $logtype in
+      runlogs)
+        lf="${DMCM_BASE_DIR}/sv/dmcm-${role}/log/run/main/current"
+        ;;
+      *)
+        lf="${DMCM_SERVICE_DIR}/$role/logs/${logname}.log"
+      esac
+
+      loglist="$loglist $lf"
+    fi
+  done
+
+  dmcm_debug "loglist: $loglist"
+
+  local func=`dmcm_get_function $dmcm_action "logs"`
+
+  $func $loglist
+}
+
+function dmcm_clear_logs(){
+  for file in "$*"; do
+    [[ -e $file ]] && > $file && dmcm_notify "truncated $file" || dmcm_notify "unable to truncate $file"
+  done
+}
+
+function dmcm_page_logs(){
+  less $*
+}
+
+function dmcm_rm_logs(){
+  for file in "$*"; do
+    if [[ -e $file ]]; then
+      rm -f $file && dmcm_notify "removed $file" || dmcm_notify "unable to remove $file"
+    else
+      dmcm_notify "no such file $file"
+    fi
+  done
+}
+
+function dmcm_tail_logs(){
+  echo $* | xargs tail -f
+}

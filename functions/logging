@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+function dmcm_format_rows(){
+  local rows
+  local row
+
+  for row in "$@"; do
+    if [[ -z $rows ]]; then
+      rows="$row"
+    else
+      rows="$rows\n  $row"
+    fi
+  done
+
+  echo "  $rows"
+}
+
+function dmcm_debug(){
+  [[ $dmcm_debug_flag -eq "0" ]] || return 0
+  printf "[${FUNCNAME[1]}] %b" "$*\n" >&2
+}
+
+function dmcm_error(){
+  printf "%b" "$*\n" >&2
+}
+
+function dmcm_out(){
+  printf "$*\n"
+}
