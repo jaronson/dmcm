@@ -22,12 +22,13 @@ source "$DMCM_SCRIPTPATH/functions/resource"
 function dmcm_help(){
   local args=$(echo $* | $SED "s/.*--\(.*\)/\1/g" | tr -d "'")
 
-  [[ $args -eq "" ]] && dmcm_usage && return
+  [[ "$args" = "" ]] && dmcm_usage && return
 
-  local h=$(echo $args | cut -d' ' -f1)
+  local f="$DMCM_SCRIPTPATH/help/$(echo $args | cut -d' ' -f2).md"
 
-  if [[ -e "./help/$h.md" ]]; then
-    dmcm_out "$(cat "./help/$h.md")"
+  if [ -e $f ]; then
+    printf "$(cat $f)" "$(echo ${DMCM_AV_SERVICES} | $SED "s/ /, /g")"
+    printf "\n"
   else
     dmcm_usage
   fi
@@ -185,7 +186,7 @@ function dmcm(){
   dmcm_init
 
   [[ $# -eq "0" ]] && dmcm_help && return 1
-  [[ "$1" = "help" ]] && dmcm_help && return 0
+  [[ "$1" = "help" ]] && dmcm_help $@ && return 0
 
   local flag
   local switchflag=0
