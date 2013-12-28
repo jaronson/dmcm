@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+function _dmcm_complete(){
+  local cur prev
+
+  local actions="clear echo get page restart rm set start status stop tail view"
+  local services="all api assign console dispatcher km monitor mysql pound publisher rabbitmq riak subscriber"
+  local resources="credentials loglevel logs runlogs servicelogs"
+  local list=
+
+  COMPREPLY=()
+
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  case ${COMP_WORDS[1]} in
+    *)
+      [[ "$actions" =~ "$prev" ]] && list=$services
+      [[ "$services" =~ "$prev" ]] && list=$(echo "$services $resources" | sort -u)
+      [[ -z $list ]] && list=$actions
+    ;;
+  esac
+
+  COMPREPLY=( $(compgen -W "${list}" ${cur}) )
+
+  return 0
+}
+
+complete -F _dmcm_complete dmcm

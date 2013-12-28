@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 function dmcm_run_action_on_resource(){
-  local resource
-  local func
+  local resource=
+  local func=
 
   [[ -z $dmcm_resource ]] && dmcm_resource="logs"
 
@@ -18,7 +18,7 @@ function dmcm_run_action_on_resource(){
 
       if [[ $? -ne 0 ]]; then
         dmcm_error "Unknown function: $func, called for resource: $resource"
-        return
+        return 1
       else
         $func
       fi
@@ -84,7 +84,12 @@ function dmcm_run_action_on_logs(){
 
   local func=`dmcm_get_function $dmcm_action "logs"`
 
-  $func $loglist
+  type $func > /dev/null 2>&1
+
+  [[ $? -eq "0" ]] && $func $loglist && return 0
+
+  dmcm_error "I don't know how to '$dmcm_tokens'."
+  return 1
 }
 
 function dmcm_clear_logs(){
@@ -119,4 +124,44 @@ function dmcm_view_logs(){
   else
     view $*
   fi
+}
+
+function dmcm_get_credentials(){
+  local sv=
+  local f=
+  local buf=
+  local b=
+  local host_db=
+  local user=
+  local pass=
+  local fmt='"%-10s %-20s %-14s %s\n", $1, $2, $3, $4'
+
+  echo "HOST DATABASE USER PASS" | awk "{ printf $fmt }"
+
+  for f in \
+    "${DMCM_SERVICE_DIR}/worker/resources/worker.properties"\
+    "${DMCM_SERVICE_DIR}/monitor/resources/cloud.properties";
+    do
+    buf=$(grep -e '^[a-z.]\+url=.*' $f)
+
+    for b in $buf; do
+      host_db=$(echo $b | egrep -o 'mysql:.*\?' | sed "s/?//g" | tr '/' ' ' | awk '{ print $2, $3 }')
+      user=$(echo $b | egrep -o 'user=.*&' | sed "s/user=\(.*\)&/\1/g")
+      pass=$(echo $b | egrep -o 'password=.*&?' | sed "s/password=\(.*\)&\?/\1/g")
+
+      echo $host_db $user $pass | awk "{ printf $fmt }"
+    done
+  done
+
+  for sv in dispatcher console api km; do
+    f="${DMCM_SERVICE_DIR}/$sv/contexts/enstratus-context.xml"
+
+    while read l; do
+      [[ "$l" =~ "username" ]] && user=$(echo $l | egrep -o '>.*<' | sed "s/<\|>//g")
+      [[ "$l" =~ "password" ]] && pass=$(echo $l | egrep -o '>.*<' | sed "s/<\|>//g")
+      [[ "$l" =~ "url" ]] && host_db=$(echo $l | egrep -o 'mysql:.*\?' | sed "s/?//g" | tr '/' ' ' | awk '{ print $2, $3 }')
+    done < $f
+
+    echo $host_db $user $pass | awk "{ printf $fmt }"
+  done
 }

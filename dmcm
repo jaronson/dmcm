@@ -17,7 +17,7 @@ DMCM_SCRIPTPATH=`pwd -P`
 
 source "$DMCM_SCRIPTPATH/functions/logging"
 source "$DMCM_SCRIPTPATH/functions/service"
-source "$DMCM_SCRIPTPATH/functions/attribute"
+source "$DMCM_SCRIPTPATH/functions/action"
 source "$DMCM_SCRIPTPATH/functions/resource"
 
 function dmcm_help(){
@@ -52,7 +52,7 @@ EOF
 }
 
 function dmcm_get_function(){
-  echo "dmcm_${1}_${2}" | tr -d ' '
+  echo "dmcm_${*}" | tr ' ' '_'
 }
 
 function dmcm_init(){
@@ -69,19 +69,21 @@ function dmcm_init(){
 
   DMCM_SERVICE_DIR="/services"
   DMCM_BASE_DIR="/opt/dmcm-base"
-  DMCM_AV_ACTIONS="clear get page restart rm set start status stop tail view"
-  DMCM_AV_RESOURCES="logs runlogs servicelogs loglevel"
+  DMCM_AV_ACTIONS="clear echo get page restart rm set start status stop tail view"
+  DMCM_AV_RESOURCES="credentials loglevel logs runlogs servicelogs"
 }
 
 function dmcm_run_sentence(){
-  if [[ -z "$dmcm_action" || -z "$dmcm_service" ]]; then
+  if [[ -z "$dmcm_action" ]]; then
     dmcm_error "Missing action and/or service."
-    dmcm_error "Sentence read: '$*'"
     return 1
   fi
 
   if [[ -z "$dmcm_resource" ]]; then
     case $dmcm_action in
+    echo)
+      dmcm_run_action
+      ;;
     page|tail|view)
       dmcm_run_action_on_resource
       ;;
@@ -90,7 +92,6 @@ function dmcm_run_sentence(){
       ;;
     *)
       dmcm_error "Missing resource."
-      dmcm_error "Sentence read: '$*'"
       return 1
       ;;
     esac
@@ -125,6 +126,13 @@ function dmcm_generate_sentence(){
     dmcm_error "Unknown action '$1'."
     return 1
   fi
+
+  case $dmcm_action in
+  echo)
+    dmcm_echo
+    return
+    ;;
+  esac
 
   if [[ $# -eq "0" ]]; then
     dmcm_star=true
@@ -175,7 +183,7 @@ function dmcm_generate_sentence(){
   dmcm_service=$(for s in `echo $dmcm_service`; do echo $s; done | sort -u | xargs)
   dmcm_resource=$(echo $dmcm_resource | xargs)
 
-  [[ -z $dmcm_action || -z $dmcm_service ]] && dmcm_error "Action and/or service is missing." && return 1
+  [[ -z $dmcm_action ]] && dmcm_error "Action and/or service is missing." && return 1
 
   dmcm_sentence=$(dmcm_print_sentence)
 
@@ -233,8 +241,6 @@ function dmcm(){
   dmcm_generate_sentence $tokens > /dev/null
 
   [[ $? -ne "0" ]] && return
-
-  dmcm_debug "sentence: $dmcm_sentence"
 
   dmcm_run_sentence
   return
