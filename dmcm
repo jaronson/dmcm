@@ -64,34 +64,31 @@ function dmcm_init(){
 
   for s in `ls ${INIT_DIR}/${DMCM_PREFIX}-*`; do
     sf=`echo \`basename $s\` | $SED "s/^${DMCM_PREFIX}-//"`
-    DMCM_AV_SERVICES="$DMCM_AV_SERVICES $sf"
+    DMCM_AV_SERVICES=$(echo "$DMCM_AV_SERVICES $sf" | sort -u)
   done
 
   DMCM_SERVICE_DIR="/services"
   DMCM_BASE_DIR="/opt/dmcm-base"
-  DMCM_AV_ACTIONS="clear echo get page restart rm set start status stop tail view"
-  DMCM_AV_RESOURCES="credentials loglevel logs runlogs servicelogs"
+  DMCM_AV_ACTIONS="clear get page restart rm set start status stop tail view"
+  DMCM_AV_RESOURCES="credentials loglevel logs memusage pid runlogs servicelogs"
 }
 
 function dmcm_run_sentence(){
   if [[ -z "$dmcm_action" ]]; then
-    dmcm_error "Missing action and/or service."
+    dmcm_error "I don't know how to '$dmcm_tokens'."
     return 1
   fi
 
   if [[ -z "$dmcm_resource" ]]; then
     case $dmcm_action in
-    echo)
-      dmcm_run_action
-      ;;
     page|tail|view)
       dmcm_run_action_on_resource
       ;;
     restart|status|start|stop)
-      dmcm_run_action_on_service
+      dmcm_run_action_on_service "$dmcm_action" "$dmcm_service"
       ;;
     *)
-      dmcm_error "Missing resource."
+      dmcm_error "I don't know how to '$dmcm_tokens'."
       return 1
       ;;
     esac
@@ -126,13 +123,6 @@ function dmcm_generate_sentence(){
     dmcm_error "Unknown action '$1'."
     return 1
   fi
-
-  case $dmcm_action in
-  echo)
-    dmcm_echo
-    return
-    ;;
-  esac
 
   if [[ $# -eq "0" ]]; then
     dmcm_star=true
@@ -180,10 +170,12 @@ function dmcm_generate_sentence(){
   dmcm_debug "dmcm_value $dmcm_value"
 
   dmcm_action=$(echo $dmcm_action | xargs)
-  dmcm_service=$(for s in `echo $dmcm_service`; do echo $s; done | sort -u | xargs)
+  dmcm_service=$(for s in `echo $dmcm_service`; do echo $s; done | xargs)
   dmcm_resource=$(echo $dmcm_resource | xargs)
 
   [[ -z $dmcm_action ]] && dmcm_error "Action and/or service is missing." && return 1
+  [[ -z $dmcm_service ]] && dmcm_service=$DMCM_AV_SERVICES && dmcm_star=true
+
 
   dmcm_sentence=$(dmcm_print_sentence)
 

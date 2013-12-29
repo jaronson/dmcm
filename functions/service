@@ -7,12 +7,12 @@ function dmcm_run_action_on_service(){
   local pid=
   local out=
 
-  [ "$dmcm_action" = "status" ] && echo "STATUS SERVICE PID UPTIME" | awk "{ printf $fmt }"
+  [ "$1" = "status" ] && echo "STATUS SERVICE PID UPTIME" | awk "{ printf $fmt }"
 
-  for sv in $dmcm_service; do
-    cmd="${INIT_DIR}/${DMCM_PREFIX}-${sv} $dmcm_action"
+  for sv in $2; do
+    cmd="${INIT_DIR}/${DMCM_PREFIX}-${sv} $1"
 
-    if [ "$dmcm_action" = "status" ]; then
+    if [ "$1" = "status" ]; then
       out=$($cmd | $SED "s/(\|)\|:\|;//g" | awk '{ print $1, $2, $4, $5 }' | $SED "s/normally\|up/-/g")
       echo $out | awk "{ printf $fmt }" |\
         $SED "s/ \(run\)/ ${dmcm_notify_clr}\1${dmcm_reset_clr}/g" |\
@@ -21,7 +21,7 @@ function dmcm_run_action_on_service(){
       $cmd
     fi
 
-    if [ "$dmcm_action" = "stop" -o "$dmcm_action" = "restart" ]; then
+    if [ "$1" = "stop" -o "$1" = "restart" ]; then
       stat=$(${INIT_DIR}/${DMCM_PREFIX}-${sv} status)
 
       echo $stat | egrep "want down, got TERM" &&\
@@ -50,22 +50,29 @@ function dmcm_get_loglevel(){
     [[ -e $f ]] || continue
 
     local re=$(grep -e 'category name="\(.*\)"' $f | $SED 's/.*name="\(.*\)".*/\1/g' | cut -d' ' -f1 | sed 's/"//g' | xargs | tr ' ' '|')
-
-    printf "\n$sv\n"
+    local lines=""
 
     for line in $(dmcm_run_logleveller getlevel -f "log4j:($re)" | $SED "s/ -> /|/g"); do
       local ns=$(echo $line | cut -d'|' -f1)
       local v=$(echo $line | cut -d'|' -f2)
 
       case $v in
-        WARN)  v="${dmcm_warn_clr}$v${dmcm_reset_clr}" ;;
-        DEBUG) v="${dmcm_debug_clr}$v${dmcm_reset_clr}" ;;
-        ERROR) v="${dmcm_error_clr}$v${dmcm_reset_clr}" ;;
-        INFO)  v="${dmcm_notify_clr}$v${dmcm_reset_clr}" ;;
+        TRACE) v="1-${dmcm_error_clr}$v${dmcm_reset_clr}" ;;
+        DEBUG) v="2-${dmcm_debug_clr}$v${dmcm_reset_clr}" ;;
+        INFO)  v="3-${dmcm_warn_clr}$v${dmcm_reset_clr}" ;;
+        WARN)  v="4-$v" ;;
+        ERROR) v="5-$v" ;;
+        FATAL) v="6-$v" ;;
+        OFF)   v="7-$v" ;;
+        null)  v="8-NULL" ;;
       esac
 
-      echo "$ns $v" | awk '{ printf "%-50s %s\n", $1, $2 }' | tr ' ' '.'
+      lines="$lines $(echo "$v|$ns" )"
     done
+
+    echo "dmcm-$sv"
+    echo "$lines" | tr ' ' "\n" | tail -n+2 | sort -n | $SED "s/^[0-9]-//g" | tr '|' ' ' | awk '{ printf "%-50s %s\n", $2, $1 }' | tr ' ' '.'
+    echo ""
   done
 }
 

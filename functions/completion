@@ -3,9 +3,9 @@
 function _dmcm_complete(){
   local cur prev
 
-  local actions="clear echo get page restart rm set start status stop tail view"
+  local actions="clear get page restart rm set start status stop tail view"
   local services="all api assign console dispatcher km monitor mysql pound publisher rabbitmq riak subscriber"
-  local resources="credentials loglevel logs runlogs servicelogs"
+  local resources="credentials loglevel logs pid runlogs servicelogs"
   local list=
 
   COMPREPLY=()
@@ -14,10 +14,16 @@ function _dmcm_complete(){
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   case ${COMP_WORDS[1]} in
-    *)
-      [[ "$actions" =~ "$prev" ]] && list=$services
-      [[ "$services" =~ "$prev" ]] && list=$(echo "$services $resources" | sort -u)
-      [[ -z $list ]] && list=$actions
+  page|rm|tail|view)
+    list=$(echo "$services logs servicelogs runlogs" | sort -u)
+    ;;
+  get)
+    list=$(echo "$services loglevel credentials" | sort -u)
+    ;;
+  *)
+    [[ "$actions" =~ "$prev" ]] && list=$services
+    [[ "$services" =~ "$prev" ]] && list=$(echo "$services $resources" | sort -u)
+    [[ -z $list ]] && list=$actions
     ;;
   esac
 

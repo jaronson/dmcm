@@ -14,13 +14,11 @@ function dmcm_run_action_on_resource(){
       func=$(dmcm_get_function $dmcm_action $dmcm_resource)
       type $func > /dev/null 2>&1
 
-      dmcm_debug $func
-
       if [[ $? -ne 0 ]]; then
-        dmcm_error "Unknown function: $func, called for resource: $resource"
+        dmcm_error "I don't know how to '$dmcm_tokens'."
         return 1
       else
-        $func
+        $func "$dmcm_service"
       fi
       ;;
     esac
@@ -61,7 +59,7 @@ function dmcm_run_action_on_logs(){
 
     if [[ "$dmcm_action" = "rm" ]]; then
       if [[ -z `dmcm status $service | grep '^down'` ]]; then
-        dmcm_notify "must stop $service first"
+        dmcm_out "You must stop $service first."
         addlog=0
       fi
     fi
@@ -86,15 +84,18 @@ function dmcm_run_action_on_logs(){
 
   type $func > /dev/null 2>&1
 
-  [[ $? -eq "0" ]] && $func $loglist && return 0
-
-  dmcm_error "I don't know how to '$dmcm_tokens'."
-  return 1
+  if [[ $? -eq "0" ]]; then
+    $func $loglist
+    return 0
+  else
+    dmcm_error "I don't know how to '$dmcm_tokens'."
+    return 1
+  fi
 }
 
 function dmcm_clear_logs(){
   for file in "$*"; do
-    [[ -e $file ]] && > $file && dmcm_notify "truncated $file" || dmcm_notify "unable to truncate $file"
+    [[ -e $file ]] && > $file && dmcm_out "Truncated $file." || dmcm_out "Unable to truncate $file."
   done
 }
 
@@ -105,9 +106,9 @@ function dmcm_page_logs(){
 function dmcm_rm_logs(){
   for file in "$*"; do
     if [[ -e $file ]]; then
-      rm -f $file && dmcm_notify "removed $file" || dmcm_notify "unable to remove $file"
+      rm -f $file && dmcm_out "removed $file" || dmcm_out "Unable to remove $file."
     else
-      dmcm_notify "no such file $file"
+      dmcm_out "No such file $file."
     fi
   done
 }
@@ -163,5 +164,32 @@ function dmcm_get_credentials(){
     done < $f
 
     echo $host_db $user $pass | awk "{ printf $fmt }"
+  done
+}
+
+function dmcm_get_pid(){
+  dmcm_run_action_on_service 'status' "$1" | tail -n+2 | awk '{ print $3 }' | xargs
+}
+
+function dmcm_get_memusage(){
+  local types=("Rss" "Shared" "Private" "Swap" "Pss")
+  local fmt='"%-20s %-10s %-10s %-10s %-10s %-10s %-10s\n", $1, $2, $3, $4, $5, $6, $7'
+
+  echo "Service ${types[@]} Total" | tr '[a-z]' '[A-Z]' | awk "{ printf $fmt }"
+
+  for sv in $dmcm_service; do
+    local pid=$(dmcm_get_pid $sv)
+    local usage=
+    local stotal=
+
+    for type in "${types[@]}"; do
+      local u=$(cat /proc/$pid/smaps | grep $type | awk '{ print $2 }' | xargs | tr ' ' '+' | bc)
+      u="$(echo "$u / 1024" | bc)"
+      usage="$usage ${u}"
+    done
+
+    stotal=$(echo $usage | tr ' ' '+' | bc)
+
+    echo "dmcm-$sv $usage $stotal" | awk "{ printf $fmt }"
   done
 }
