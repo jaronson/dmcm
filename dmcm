@@ -3,13 +3,13 @@ set -u
 
 pushd `dirname $0` > /dev/null
 
-DMCM_SCRIPTPATH=`pwd -P`
-DMCM_SERVICE_DIR="/services"
-DMCM_BASE_DIR="/opt/dmcm-base"
+export DMCM_SCRIPTPATH=`pwd -P`
+export DMCM_SERVICE_DIR="/services"
+export DMCM_BASE_DIR="/opt/dmcm-base"
 
-INIT_DIR="/etc/init.d"
-GETOPT="/usr/bin/getopt"
-SED="/bin/sed"
+export INIT_DIR="/etc/init.d"
+export GETOPT="/usr/bin/getopt"
+export SED="/bin/sed"
 
 dmcm_tokens=
 dmcm_flag_debug=0
@@ -97,8 +97,9 @@ function dmcm_parse_sentence(){
     action=$1
     shift
   else
-    dmcm_error "Unknown action '$1'."
-    return 1
+    #dmcm_error "Unknown action '$1'."
+    #return 1
+    action=get
   fi
 
   if [[ $# -eq "0" ]]; then
@@ -161,6 +162,11 @@ function dmcm_parse_sentence(){
 }
 
 function dmcm(){
+  if [ $(id -u) -ne "0" ]; then
+    dmcm_error "You must be root."
+    return 1
+  fi
+
   [[ $# -eq "0" ]] && dmcm_help && return 1
   [[ "$1" = "help" ]] && dmcm_help $@ && return 0
 

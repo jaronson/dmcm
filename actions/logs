@@ -69,7 +69,8 @@ function dmcm_clear_logs(){
 }
 
 function dmcm_page_logs(){
-  less $(echo dmcm_generate_loglist $@)
+  local list=$(dmcm_generate_loglist $@)
+  less $list
 }
 
 function dmcm_rm_logs(){

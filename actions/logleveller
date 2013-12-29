@@ -1,28 +1,25 @@
 #!/usr/bin/env bash
 
 function dmcm_run_logleveller(){
-  if [[ $(id -u) -eq "0" ]]; then
-    local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
-    local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
+  local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
+  local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
 
-    $script -u localhost:$port $*
-  else
-    dmcm_error "You must be root to do that."
-    return 1
-  fi
+  $script -u localhost:$port $*
 }
 
 function dmcm_get_loglevel(){
+  local prefix=$(dmcm_get_prefix)
   local services=$(echo $2 | tr ',' ' ')
+  local lines=""
 
   for sv in $services; do
     local f="${DMCM_SERVICE_DIR}/$sv/resources/log4j.xml"
+
     [[ -e $f ]] || continue
 
     local re=$(grep -e 'category name="\(.*\)"' $f | $SED 's/.*name="\(.*\)".*/\1/g' | cut -d' ' -f1 | sed 's/"//g' | xargs | tr ' ' '|')
-    local lines=""
 
-    for line in $(dmcm_run_logleveller getlevel -f "log4j:($re)" | $SED "s/ -> /|/g"); do
+    for line in $(dmcm_run_logleveller getlevel -f "log4j:($re)" | $SED 's/^log4j://g' | $SED "s/ -> /|/g"); do
       local ns=$(echo $line | cut -d'|' -f1)
       local v=$(echo $line | cut -d'|' -f2)
 
@@ -37,13 +34,12 @@ function dmcm_get_loglevel(){
         null)  v="8-NULL" ;;
       esac
 
-      lines="$lines $(echo "$v|$ns" )"
+      lines="$lines $v|$ns|${prefix}-$sv"
     done
-
-    echo "dmcm-$sv"
-    echo "$lines" | tr ' ' "\n" | tail -n+2 | sort -n | $SED "s/^[0-9]-//g" | tr '|' ' ' | awk '{ printf "%-50s %s\n", $2, $1 }' | tr ' ' '.'
-    echo ""
+    lines=$(echo "$lines" | tr ' ' "\n" | tail -n+2 | sort -n | $SED "s/^[0-9]-//g")
   done
+
+  echo "$lines" | tr '|' ' ' | awk '{ printf "%-20s %-50s %s\n", $3, $2, $1 }'
 }
 
 function dmcm_set_loglevel(){
