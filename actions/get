@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+DMCM_PREFIX=
+DMCM_AV_SERVICES=
+
+function dmcm_get_prefix(){
+  [[ -n $DMCM_PREFIX ]] && echo $DMCM_PREFIX && return 0
+
+  for prefix in dmcm enstratus; do
+    [ -z "$DMCM_PREFIX" -a -n "`ls -l ${INIT_DIR}/${prefix}-* 2>/dev/null`" ]\
+      && DMCM_PREFIX=$prefix && echo $prefix && return 0
+  done
+}
+
+function dmcm_get_actions(){
+  echo "clear get page restart rm set start status stop tail view"
+}
+
+function dmcm_get_services(){
+  [[ -n $DMCM_AV_SERVICES ]] && echo $DMCM_AV_SERVICES && return 0
+
+  for s in `ls ${INIT_DIR}/$(dmcm_get_prefix)-*`; do
+    sf=`echo \`basename $s\` | $SED "s/^$(dmcm_get_prefix)-//"`
+    DMCM_AV_SERVICES=$(echo "$DMCM_AV_SERVICES $sf" | sort -u)
+  done
+
+  echo $DMCM_AV_SERVICES
+}
+
+function dmcm_get_resources(){
+  echo "credentials loglevel logs memusage pid runlogs servicelogs"
+}
+
+function dmcm_get_credentials(){
+  local fmt='"%-10s %-20s %-14s %s\n", $1, $2, $3, $4'
+  local sv=
+  local f=
+  local buf=
+  local b=
+  local host_db=
+  local user=
+  local pass=
+  local lines=
+
+  echo "HOST DATABASE USER PASS" | awk "{ printf $fmt }"
+
+  for f in \
+    "${DMCM_SERVICE_DIR}/worker/resources/worker.properties"\
+    "${DMCM_SERVICE_DIR}/monitor/resources/cloud.properties";
+    do
+
+    buf=$(grep -e '^[a-z.]\+url=.*' $f)
+
+    for b in $buf; do
+      host_db=$(echo $b | egrep -o 'mysql:.*\?' | sed "s/?//g" | tr '/' ' ' | awk '{ print $2, $3 }')
+      user=$(echo $b | egrep -o 'user=.*&' | sed "s/user=\(.*\)&/\1/g")
+      pass=$(echo $b | egrep -o 'password=.*&?' | sed "s/password=\(.*\)&\?/\1/g")
+
+      lines=$lines"$host_db $user $pass|"
+    done
+  done
+
+  for sv in dispatcher console api km; do
+    f="${DMCM_SERVICE_DIR}/$sv/contexts/enstratus-context.xml"
+
+    while read l; do
+      [[ "$l" =~ "username" ]] && user=$(echo $l | egrep -o '>.*<' | sed "s/<\|>//g")
+      [[ "$l" =~ "password" ]] && pass=$(echo $l | egrep -o '>.*<' | sed "s/<\|>//g")
+      [[ "$l" =~ "url" ]] && host_db=$(echo $l | egrep -o 'mysql:.*\?' | sed "s/?//g" | tr '/' ' ' | awk '{ print $2, $3 }')
+    done < $f
+
+    lines=$lines"$host_db $user $pass|"
+  done
+
+  echo $lines | $SED "s/|$//g" | tr '|' "\n" | sort -u | awk "{ printf $fmt }"
+}
+
+function dmcm_get_pid(){
+  dmcm status "$(echo $2 | tr ',' ' ')" | tail -n+2 | awk '{ print $3 }' | xargs
+}
+
+function dmcm_get_memusage(){
+  local services=$(echo $2 | tr ',' ' ')
+  local types=("Rss" "Shared" "Private" "Swap" "Pss")
+  local fmt='"%-20s %-10s %-10s %-10s %-10s %-10s %-10s\n", $1, $2, $3, $4, $5, $6, $7'
+
+  echo "Service ${types[@]} Total" | tr '[a-z]' '[A-Z]' | awk "{ printf $fmt }"
+
+  for sv in $services; do
+    local pid=$(dmcm_get_pid '' $sv)
+    local usage=
+    local stotal=
+
+    for type in "${types[@]}"; do
+      local u=$(cat /proc/$pid/smaps | grep $type | awk '{ print $2 }' | xargs | tr ' ' '+' | bc)
+      u="$(echo "$u / 1024" | bc)"
+      usage="$usage ${u}"
+    done
+
+    stotal=$(echo $usage | tr ' ' '+' | bc)
+
+    echo "dmcm-$sv $usage $stotal" | awk "{ printf $fmt }"
+  done
+}
+

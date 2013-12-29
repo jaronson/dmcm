@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
 set -u
 
+pushd `dirname $0` > /dev/null
+
+DMCM_SCRIPTPATH=`pwd -P`
+DMCM_SERVICE_DIR="/services"
+DMCM_BASE_DIR="/opt/dmcm-base"
+
 INIT_DIR="/etc/init.d"
 GETOPT="/usr/bin/getopt"
 SED="/bin/sed"
 
-DMCM_PREFIX=
-DMCM_SERVICE_DIR=
-DMCM_BASE_DIR=
-DMCM_AV_SERVICES=
-DMCM_AV_ACTIONS=
-DMCM_AV_RESOURCES=
+dmcm_tokens=
+dmcm_flag_debug=0
+dmcm_flag_interactive=0
 
-pushd `dirname $0` > /dev/null
-DMCM_SCRIPTPATH=`pwd -P`
+for file in `ls -d $DMCM_SCRIPTPATH/{actions,functions}/*`; do
+  source $file
+done
 
-source "$DMCM_SCRIPTPATH/functions/logging"
-source "$DMCM_SCRIPTPATH/functions/service"
-source "$DMCM_SCRIPTPATH/functions/action"
-source "$DMCM_SCRIPTPATH/functions/resource"
+#source "$DMCM_SCRIPTPATH/functions/logging"
+#source "$DMCM_SCRIPTPATH/actions/service"
+#source "$DMCM_SCRIPTPATH/actions/get"
+#source "$DMCM_SCRIPTPATH/actions/logs"
 
 function dmcm_help(){
   local args=$(echo $* | $SED "s/.*--\(.*\)/\1/g" | tr -d "'")
@@ -28,7 +32,7 @@ function dmcm_help(){
   local f="$DMCM_SCRIPTPATH/help/$(echo $args | cut -d' ' -f2).md"
 
   if [ -e $f ]; then
-    printf "$(cat $f)" "$(echo ${DMCM_AV_SERVICES} | $SED "s/ /, /g")"
+    printf "$(cat $f)" "$(echo $(dmcm_get_services) | $SED "s/ /, /g")"
     printf "\n"
   else
     dmcm_usage
@@ -40,84 +44,57 @@ function dmcm_usage(){
 Usage: dmcm [options] <action> <service> [resource]
 
 Available services:
-$(dmcm_format_rows ${DMCM_AV_SERVICES})
+$(dmcm_format_rows $(dmcm_get_services))
 
 Available resources:
-$(dmcm_format_rows ${DMCM_AV_RESOURCES})
+$(dmcm_format_rows $(dmcm_get_resources))
 
 Available actions:
-$(dmcm_format_rows ${DMCM_AV_ACTIONS})
+$(dmcm_format_rows $(dmcm_get_actions))
 EOF
 )"
 }
 
-function dmcm_get_function(){
-  echo "dmcm_${*}" | tr ' ' '_'
-}
-
-function dmcm_init(){
-  for prefix in dmcm enstratus; do
-    [ -z "$DMCM_PREFIX" -a -n "`ls -l ${INIT_DIR}/${prefix}-* 2>/dev/null`" ] && DMCM_PREFIX=$prefix
-  done
-
-  [[ -z $DMCM_PREFIX ]] && DMCM_PREFIX=dmcm
-
-  for s in `ls ${INIT_DIR}/${DMCM_PREFIX}-*`; do
-    sf=`echo \`basename $s\` | $SED "s/^${DMCM_PREFIX}-//"`
-    DMCM_AV_SERVICES=$(echo "$DMCM_AV_SERVICES $sf" | sort -u)
-  done
-
-  DMCM_SERVICE_DIR="/services"
-  DMCM_BASE_DIR="/opt/dmcm-base"
-  DMCM_AV_ACTIONS="clear get page restart rm set start status stop tail view"
-  DMCM_AV_RESOURCES="credentials loglevel logs memusage pid runlogs servicelogs"
-}
-
 function dmcm_run_sentence(){
-  if [[ -z "$dmcm_action" ]]; then
+  [[ "$#" -eq 0 ]] && dmcm_error "No action was given." && return 1
+
+  local action=$1
+  shift
+
+  local func=
+
+  if [[ "$#" -lt 2 ]]; then
+    func="dmcm_$action"
+  else
+    func="dmcm_${action}_${2}"
+  fi
+
+  dmcm_debug "generated function: $func"
+
+  type $func > /dev/null 2>&1
+
+  if [[ $? -ne 0 ]]; then
     dmcm_error "I don't know how to '$dmcm_tokens'."
     return 1
-  fi
-
-  if [[ -z "$dmcm_resource" ]]; then
-    case $dmcm_action in
-    page|tail|view)
-      dmcm_run_action_on_resource
-      ;;
-    restart|status|start|stop)
-      dmcm_run_action_on_service "$dmcm_action" "$dmcm_service"
-      ;;
-    *)
-      dmcm_error "I don't know how to '$dmcm_tokens'."
-      return 1
-      ;;
-    esac
   else
-    dmcm_run_action_on_resource
+    $func $action $@
   fi
 }
 
-function dmcm_print_sentence(){
-  echo "$dmcm_action $dmcm_service $dmcm_resource"
-}
-
-dmcm_tokens=
-dmcm_action=
-dmcm_service=
-dmcm_resource=
-dmcm_value=
-dmcm_star=
-
-function dmcm_generate_sentence(){
-  dmcm_tokens=$*
-
+function dmcm_parse_sentence(){
+  local tokens=$*
   local count=1
-  local arg
+  local arg=
 
-  echo ${DMCM_AV_ACTIONS} | grep -i -w "$1" > /dev/null
+  local service=
+  local action=
+  local resource=
+  local value=
+
+  echo $(dmcm_get_actions) | grep -i -w "$1" > /dev/null
 
   if [[ $? -eq "0" ]]; then
-    dmcm_action=$1
+    action=$1
     shift
   else
     dmcm_error "Unknown action '$1'."
@@ -125,18 +102,16 @@ function dmcm_generate_sentence(){
   fi
 
   if [[ $# -eq "0" ]]; then
-    dmcm_star=true
-    dmcm_service=$DMCM_AV_SERVICES
+    service=$(dmcm_get_services)
   elif [[ "$1" = "all" ]]; then
-    dmcm_star=true
-    dmcm_service=$DMCM_AV_SERVICES
+    service=$(dmcm_get_services)
     shift
   else
     for arg in $*; do
-      echo "${DMCM_AV_SERVICES}" | grep -i -w "$arg" > /dev/null
+      echo "$(dmcm_get_services)" | grep -i -w "$arg" > /dev/null
 
       if [[ $? -eq "0" ]]; then
-        dmcm_service="$dmcm_service $arg"
+        service="$service $arg"
         shift
       else
         break
@@ -149,46 +124,43 @@ function dmcm_generate_sentence(){
 
     if [ "$#" -gt "1" ] && [[ $(echo $2 | tr -d ' ') = "=" || $(echo $2 | tr -d ' ') = "to" ]]; then
       res=$1
-      dmcm_value=$3
+      value=$3
     else
       local kv=$(echo $1 | $SED "s/ to /=/g" | tr -d ' ')
-      res=$(echo $kv | cut -d'=' -f1)
-      dmcm_value=$(echo $kv | cut -d'=' -f2)
+      if [[ "$(echo $kv | wc -w)" = "2" ]]; then
+        res=$(echo $kv | cut -d'=' -f1)
+        value=$(echo $kv | cut -d'=' -f2)
+      else
+        res=$kv
+      fi
     fi
 
-    for r in $DMCM_AV_RESOURCES; do
-      [[ ${res} = $r ]] && dmcm_resource=$res && break
+    for r in $(dmcm_get_resources); do
+      [[ ${res} = $r ]] && resource=$res && break
     done
 
-    [[ -z $dmcm_resource ]] && [[ $res = "log" ]] && dmcm_resource=logs
-    [[ -z $dmcm_resource ]] && dmcm_error "Unknown resource '$res'." && return 1
+    [[ -z $resource ]] && [[ $res = "log" ]] && resource=logs
+    [[ -z $resource ]] && dmcm_error "Unknown resource '$res'." && return 1
   fi
 
-  dmcm_debug "dmcm_action $dmcm_action"
-  dmcm_debug "dmcm_service $dmcm_service"
-  dmcm_debug "dmcm_resource $dmcm_resource"
-  dmcm_debug "dmcm_value $dmcm_value"
+  action=$(echo $action | xargs)
+  service=$(for s in `echo $service`; do echo $s; done | xargs)
+  resource=$(echo $resource | xargs)
 
-  dmcm_action=$(echo $dmcm_action | xargs)
-  dmcm_service=$(for s in `echo $dmcm_service`; do echo $s; done | xargs)
-  dmcm_resource=$(echo $dmcm_resource | xargs)
+  [[ -z $action ]] && dmcm_error "Action and/or service is missing." && return 1
+  [[ -z $service ]] && service=$(dmcm_get_services)
 
-  [[ -z $dmcm_action ]] && dmcm_error "Action and/or service is missing." && return 1
-  [[ -z $dmcm_service ]] && dmcm_service=$DMCM_AV_SERVICES && dmcm_star=true
+  service=$(echo $service | tr ' ' ',')
 
+  dmcm_debug "action: $action"
+  dmcm_debug "service: $service"
+  dmcm_debug "resource: $resource"
+  dmcm_debug "value: $value"
 
-  dmcm_sentence=$(dmcm_print_sentence)
-
-  echo $dmcm_sentence
+  echo "$action $service $resource $value"
 }
 
-dmcm_debug_flag=0
-dmcm_interactive_flag=0
-dmcm_sentence=
-
 function dmcm(){
-  dmcm_init
-
   [[ $# -eq "0" ]] && dmcm_help && return 1
   [[ "$1" = "help" ]] && dmcm_help $@ && return 0
 
@@ -211,10 +183,10 @@ function dmcm(){
         return 0
         ;;
       -i|--interactive)
-        dmcm_interactive_flag=1
+        dmcm_flag_interactive=1
         ;;
       -d|--debug)
-        dmcm_debug_flag=1
+        dmcm_flag_debug=1
         ;;
       \?)
         dmcm_help $args
@@ -230,25 +202,12 @@ function dmcm(){
 
   dmcm_debug "tokens: $tokens"
 
-  dmcm_generate_sentence $tokens > /dev/null
+  sentence=$(dmcm_parse_sentence $tokens)
 
   [[ $? -ne "0" ]] && return
 
-  dmcm_run_sentence
-  return
-
-  if [[ -n $DMCM_INTERACTIVE ]]; then
-    read -p "$(dmcm_pretty_print_sentence)? [y/n] " -n 1 -r
-    echo
-
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      dmcm_run_sentence
-    else
-      dmcm_error 'Aborted.'
-    fi
-  else
-    dmcm_run_sentence
-  fi
+  dmcm_tokens="$tokens"
+  dmcm_run_sentence $sentence
 }
 
 dmcm $@

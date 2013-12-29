@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+function dmcm_generate_loglist(){
+  local action=$1
+  local services=$(echo $2 | tr ',' ' ')
+  local logtype=$3
+  local role=
+  local logname=
+  local loglist=
+  local addlog=1
+
+  for service in $services; do
+    if [[ "$logtype" = "runlogs" ]]; then
+      role=$service
+      logname=$service
+    else
+      case $service in
+      assign)
+        role=monitor
+        logname=$service
+        ;;
+      publisher|subscriber)
+        role=worker
+        logname="pubsub"
+        ;;
+      worker)
+        role=worker
+        logname=$service
+        ;;
+      *)
+        role=$service
+        logname=$service
+        ;;
+      esac
+    fi
+
+    if [[ "$action" = "rm" ]]; then
+      if [[ -z `dmcm status $service | grep '^down'` ]]; then
+        dmcm_out "You must stop $service first."
+        addlog=0
+      fi
+    fi
+
+    if [[ $addlog -eq 1 ]]; then
+      local lf
+      case $logtype in
+      runlogs)
+        lf="${DMCM_BASE_DIR}/sv/dmcm-${role}/log/main/current"
+        ;;
+      *)
+        lf="${DMCM_SERVICE_DIR}/$role/logs/${logname}.log"
+      esac
+
+      loglist="$loglist $lf"
+    fi
+  done
+
+  dmcm_debug "loglist: $loglist"
+
+  echo "$loglist"
+}
+
+function dmcm_clear_logs(){
+  local list=$(dmcm_generate_loglist $@)
+
+  for file in $list; do
+    [[ -e $file ]] && > $file && dmcm_out "Truncated $file." || dmcm_out "Unable to truncate $file."
+  done
+}
+
+function dmcm_page_logs(){
+  less $(echo dmcm_generate_loglist $@)
+}
+
+function dmcm_rm_logs(){
+  local list=$(dmcm_generate_loglist $@)
+
+  for file in $list; do
+    if [[ -e $file ]]; then
+      rm -f $file && dmcm_out "removed $file" || dmcm_out "Unable to remove $file."
+    else
+      dmcm_out "No such file $file."
+    fi
+  done
+}
+
+function dmcm_tail_logs(){
+  local list=$(dmcm_generate_loglist $@)
+
+  echo $list | xargs tail -n200 -f
+}
+
+function dmcm_view_logs(){
+  local list=$(dmcm_generate_loglist $@)
+
+  which vim > /dev/null
+
+  if [[ $? -eq "0" ]]; then
+    vim -O $list
+  else
+    view $list
+  fi
+}

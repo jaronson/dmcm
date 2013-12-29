@@ -54,20 +54,6 @@ dmcm_set_color()
   else eval "${__variable}='${__buffer}'"
   fi
 }
-function dmcm_format_rows(){
-  local rows=
-  local row=
-
-  for row in "$@"; do
-    if [[ -z $rows ]]; then
-      rows="$row"
-    else
-      rows="$rows\n  $row"
-    fi
-  done
-
-  echo "  $rows"
-}
 
 case "${TERM:-dumb}" in
   (dumb|unknown)
@@ -86,8 +72,23 @@ case "${TERM:-dumb}" in
     ;;
 esac
 
+function dmcm_format_rows(){
+  local rows=
+  local row=
+
+  for row in "$@"; do
+    if [[ -z $rows ]]; then
+      rows="$row"
+    else
+      rows="$rows\n  $row"
+    fi
+  done
+
+  echo "  $rows"
+}
+
 function dmcm_debug(){
-  [[ "$dmcm_debug_flag" -eq "1" ]] || return 0
+  [[ "$dmcm_flag_debug" -eq "1" ]] || return 0
   printf "[${FUNCNAME[1]}] %b" "$*\n" >&2
 }
 

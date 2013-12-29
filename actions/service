@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+function dmcm_run_action_on_service(){
+  local fmt='"%-20s %-10s %-10s %s\n", $2, $1, $3, $4'
+  local prefix=$(dmcm_get_prefix)
+  local services=$(echo $2 | tr ',' ' ')
+  local cmd=
+
+  [ "$1" = "status" ] && echo "STATUS SERVICE PID UPTIME" | awk "{ printf $fmt }"
+
+  for sv in $services; do
+    cmd="${INIT_DIR}/${prefix}-${sv} $1"
+
+    if [ "$1" = "status" ]; then
+      local out=$($cmd | $SED "s/(\|)\|:\|;//g" | awk '{ print $1, $2, $4, $5 }' | $SED "s/normally\|up/-/g")
+
+      echo $out | awk "{ printf $fmt }" |\
+        $SED "s/ \(run\)/ ${dmcm_notify_clr}\1${dmcm_reset_clr}/g" |\
+        $SED "s/ \(down\)/ ${dmcm_error_clr}\1${dmcm_reset_clr}/g"
+    else
+      $cmd
+    fi
+
+    if [ "$1" = "stop" -o "$1" = "restart" ]; then
+      local stat=$(${INIT_DIR}/${prefix}-${sv} status)
+
+      echo $stat | egrep "want down, got TERM" &&\
+        local pid=`echo $stat | awk '{ print $5 }' | cut -d\) -f1` &&\
+        echo "force killing $pid" &&\
+        sv force-shutdown ${prefix}-$sv
+    fi
+  done
+}
+
+function dmcm_status(){
+  dmcm_run_action_on_service $@
+}
+
+function dmcm_stop(){
+  dmcm_run_action_on_service $@
+}
+
+function dmcm_start(){
+  dmcm_run_action_on_service $@
+}
+
+function dmcm_restart(){
+  dmcm_run_action_on_service $@
+}
