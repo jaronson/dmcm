@@ -39,20 +39,45 @@ function dmcm_help(){
   fi
 }
 
+function dmcm_print_usage_tokens(){
+  local awkargs='{ printf "  %-14s %-14s %s\n", $1, $2, $3 }'
+  local i=1
+  local str=""
+
+  for item in $*; do
+    str="$str $item"
+
+    if [[ $(expr $i % 3) -eq 0 ]]; then
+      echo "$str" | awk "$awkargs"
+      str=""
+    fi
+
+    let i=i+1
+  done
+}
+
 function dmcm_usage(){
-  dmcm_out "$(cat << EOF
-Usage: dmcm [options] <action> <service> [resource]
+  dmcm_out "Usage:"
+  dmcm_out "  ${dmcm_notify_clr}dmcm [options] <action> <service> [resource] {=,to [value]}${dmcm_reset_clr}\n"
 
-Available services:
-$(dmcm_format_rows $(dmcm_get_services))
+  dmcm_out "[options]:"
+  echo "  -d,--debug - Run in debug mode"
+  echo "  -i,--interactive - Run in interactive mode"
+  dmcm_out ""
 
-Available resources:
-$(dmcm_format_rows $(dmcm_get_resources))
+  dmcm_out "<actions>:"
+  dmcm_print_usage_tokens $(dmcm_get_actions)
+  dmcm_out ""
 
-Available actions:
-$(dmcm_format_rows $(dmcm_get_actions))
-EOF
-)"
+  dmcm_out "<services>:"
+  dmcm_print_usage_tokens $(dmcm_get_services)
+  dmcm_out ""
+
+  dmcm_out "[resources]:"
+  dmcm_print_usage_tokens $(dmcm_get_resources)
+  dmcm_out ""
+
+  dmcm_out "See ${dmcm_notify_clr}dmcm help <action>${dmcm_reset_clr} for help on a specific action"
 }
 
 function dmcm_run_sentence(){
