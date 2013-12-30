@@ -47,3 +47,19 @@ function dmcm_start(){
 function dmcm_restart(){
   dmcm_run_action_on_service $@
 }
+
+function dmcm_riak_admin(){
+  local bin="${DMCM_BASE_DIR}/embedded/service/riak/bin/riak-admin"
+
+  [[ -e $bin ]] || bin="/usr/sbin/riak-admin"
+
+  $bin $*
+}
+
+function dmcm_status_riak-members(){
+  dmcm_riak_admin 'member-status'
+}
+
+function dmcm_status_riak-ring(){
+  dmcm_riak_admin 'ring-status'
+}

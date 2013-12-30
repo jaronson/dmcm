@@ -28,7 +28,7 @@ function dmcm_get_services(){
 }
 
 function dmcm_get_resources(){
-  echo "credentials loglevel logs memusage pid runlogs servicelogs"
+  echo "credentials loglevel logs memusage pid riak-members riak-ring runlogs servicelogs"
 }
 
 function dmcm_get_credentials(){
