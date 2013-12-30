@@ -4,6 +4,15 @@ set -u
 export DMCM_SERVICE_DIR="/services"
 
 function dmcm_install(){
+  curl -L -k https://github.com/jaronson/dmcm/archive/master.zip -o $DMCM_SERVICE_DIR/monitor/sbin/dmcm-master.zip
+  cd $DMCM_SERVICE_DIR/monitor/sbin
+  unzip dmcm-master.zip
+  mv dmcm-master dmcm
+  rm dmcm-master.zip
+  rm dmcm/install
+
+  printf "dmcm installed to $DMCM_SERVICE_DIR/monitor/sbin/dmcm\n"
+  printf "You'll want to: 'export PATH=\$PATH:$DMCM_SERVICE_DIR/monitor/sbin/dmcm'\n"
 }
 
 dmcm_install $@
