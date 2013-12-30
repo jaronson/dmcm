@@ -13,7 +13,7 @@ function dmcm_get_prefix(){
 }
 
 function dmcm_get_actions(){
-  echo "clear get page restart rm set start status stop tail view"
+  echo "clear echo get page restart rm set start status stop tail view"
 }
 
 function dmcm_get_services(){
@@ -28,7 +28,7 @@ function dmcm_get_services(){
 }
 
 function dmcm_get_resources(){
-  echo "credentials loglevel logs memusage pid riak-members riak-ring runlogs servicelogs"
+  echo "credentials loglevel logs memusage path pid riak-members riak-ring runlogs servicelogs"
 }
 
 function dmcm_get_credentials(){

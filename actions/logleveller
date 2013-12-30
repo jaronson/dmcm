@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
 function dmcm_run_logleveller(){
-  local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
-  local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/monitor/default/monitor" | cut -d'=' -f2)
+  local service=$1
+  shift
 
-  $script -u localhost:$port $*
+  local script="${DMCM_SERVICE_DIR}/monitor/sbin/log-leveller.sh"
+  local port=$(grep -o "jmxremote.port=[0-9]*" "${DMCM_SERVICE_DIR}/$service/default/$service" | cut -d'=' -f2)
+
+  $script -u localhost:$port $* 2>&1
 }
 
 function dmcm_get_loglevel(){
@@ -19,7 +22,7 @@ function dmcm_get_loglevel(){
 
     local re=$(grep -e 'category name="\(.*\)"' $f | $SED 's/.*name="\(.*\)".*/\1/g' | cut -d' ' -f1 | sed 's/"//g' | xargs | tr ' ' '|')
 
-    for line in $(dmcm_run_logleveller getlevel -f "log4j:($re)" | $SED 's/^log4j://g' | $SED "s/ -> /|/g"); do
+    for line in $(dmcm_run_logleveller $sv getlevel -f "log4j:($re)" | $SED 's/^log4j://g' | $SED "s/ -> /|/g"); do
       local ns=$(echo $line | cut -d'|' -f1)
       local v=$(echo $line | cut -d'|' -f2)
 
@@ -44,10 +47,13 @@ function dmcm_get_loglevel(){
 
 function dmcm_set_loglevel(){
   local levels="OFF FATAL ERROR WARN INFO DEBUG TRACE"
+  local services=$2
   local value=$(echo $4 | tr "[a-z]" "[A-Z]")
 
   echo ${levels} | grep -i -w "$value" > /dev/null
   [ $? != "0" ] && dmcm_error "Invalid loglevel '$value' given.\nAvailable levels:\n$(dmcm_format_rows $levels)" && return 1
 
-  dmcm_run_logleveller setlevel $value 'log4j:es.*'
+  for sv in $services; do
+    dmcm_run_logleveller $sv setlevel $value 'log4j:es.*'
+  done
 }
