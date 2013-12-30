@@ -19,11 +19,6 @@ for file in `ls -d $DMCM_SCRIPTPATH/{actions,functions}/*`; do
   source $file
 done
 
-#source "$DMCM_SCRIPTPATH/functions/logging"
-#source "$DMCM_SCRIPTPATH/actions/service"
-#source "$DMCM_SCRIPTPATH/actions/get"
-#source "$DMCM_SCRIPTPATH/actions/logs"
-
 function dmcm_help(){
   local args=$(echo $* | $SED "s/.*--\(.*\)/\1/g" | tr -d "'")
 
