@@ -86,7 +86,18 @@ function dmcm_run_sentence(){
   if [[ "$#" -lt 2 ]]; then
     func="dmcm_$action"
   else
-    func="dmcm_${action}_${2}"
+    local resource=
+
+    case $2 in
+    logs|servicelogs|runlogs)
+      resource="logs"
+      ;;
+    *)
+      resource=$2
+      ;;
+    esac
+
+    func="dmcm_${action}_${resource}"
   fi
 
   dmcm_debug "generated function: $func"
