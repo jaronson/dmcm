@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+function dmcm_watch(){
+  local services=$(echo $2 | tr ',' ' ')
+
+  for sv in $services; do
+    case $sv in
+      mysql)
+        dmcm_watch_mysql_processlist
+        return
+      ;;
+    esac
+  done
+}
+
+function dmcm_watch_mysql_processlist(){
+  watch -d -n1 'mysql -h127.0.0.1 -uroot -p0eb5c2cb6c -e "SHOW PROCESSLIST"'
+}

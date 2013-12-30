@@ -3,7 +3,7 @@
 function _dmcm_complete(){
   local cur prev
 
-  local actions="clear get page restart rm set start status stop tail view"
+  local actions="clear get page restart rm set start status stop tail view watch"
   local services="all api assign console dispatcher km monitor mysql pound publisher rabbitmq riak subscriber"
   local resources="credentials loglevel logs pid runlogs servicelogs"
   local list=
@@ -19,6 +19,9 @@ function _dmcm_complete(){
     ;;
   get)
     list=$(echo "$services loglevel credentials" | sort -u)
+    ;;
+  watch)
+    list="mysql"
     ;;
   *)
     [[ "$actions" =~ "$prev" ]] && list=$services

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+function dmcm_echo_runlogs-path(){
+  local services=$(echo $2 | tr ',' ' ')
+  local prefix=$(dmcm_get_prefix)
+
+  for sv in $services; do
+    local path="$DMCM_BASE_DIR/sv/$prefix-$sv/log/main/current"
+
+    echo $path
+  done
+}
