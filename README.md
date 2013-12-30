@@ -6,6 +6,7 @@ Usage
 [options]
 ---------
 `-d,--debug - Run in debug mode`
+
 `-i,--interactive - Run in interactive mode`
 
 <actions>
