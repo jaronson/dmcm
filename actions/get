@@ -103,7 +103,7 @@ function dmcm_get_memusage(){
     total=$(echo $usage | tr ' ' '+' | bc)
     ftotal=$(dmcm_convert_size "$total")
 
-    echo "dmcm-$sv $fusage $ftotal" | awk "{ printf $fmt }" | $SED "s/-/ /g"
+    echo "dmcm-$sv $fusage $ftotal" | awk "{ printf $fmt }"
   done
 }
 
