@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -u
+
+export DMCM_SERVICE_DIR="/services"
+
+function dmcm_install(){
+}
+
+dmcm_install $@
