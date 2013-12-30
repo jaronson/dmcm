@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Convert from kB
+function dmcm_convert_size(){
+  local u=$1
+  local s=
+
+  if [[ "$u" -gt "1023" ]]; then
+    u="$(echo "$u / 1024" | bc)"
+
+    if [[ "$u" -gt "1023" ]]; then
+      u="$(echo "$u / 1024" | bc)"
+      s="GB"
+    else
+      s="MB"
+    fi
+  else
+    s="kB"
+  fi
+
+  echo $(printf "%03d-%s" $u $s)
+}

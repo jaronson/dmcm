@@ -89,17 +89,21 @@ function dmcm_get_memusage(){
   for sv in $services; do
     local pid=$(dmcm_get_pid '' $sv)
     local usage=
-    local stotal=
+    local fusage=
+    local total=
+    local ftotal=
 
     for type in "${types[@]}"; do
       local u=$(cat /proc/$pid/smaps | grep $type | awk '{ print $2 }' | xargs | tr ' ' '+' | bc)
-      u="$(echo "$u / 1024" | bc)"
+
       usage="$usage ${u}"
+      fusage="$fusage $(dmcm_convert_size "$u")"
     done
 
-    stotal=$(echo $usage | tr ' ' '+' | bc)
+    total=$(echo $usage | tr ' ' '+' | bc)
+    ftotal=$(dmcm_convert_size "$total")
 
-    echo "dmcm-$sv $usage $stotal" | awk "{ printf $fmt }"
+    echo "dmcm-$sv $fusage $ftotal" | awk "{ printf $fmt }" | $SED "s/-/ /g"
   done
 }
 
