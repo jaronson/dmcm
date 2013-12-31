@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+function dmcm_tmux_generate_commands(){
+  #echo "rename-session \"dmcm\""
+
+  while IFS=';' read -ra LINE; do
+    wcount=0
+
+    for window in "${LINE[@]}"; do
+      [[ "$wcount" -gt "0" ]] && echo "new-window -n dmcm${wcount}"
+
+      while IFS='|' read -ra ADDR; do
+        pcount=0
+        pcurr=0
+        pprev=0
+        pnext=0
+
+        for cmd in "${ADDR[@]}"; do
+          cmd=$(echo $cmd)
+          let pcurr=$pcount
+          let pprev=$pcount-1
+          let pnext=$pcount+1
+
+          if [[ "$pprev" -gt "-1" ]]; then
+            echo "selectp -t $pprev"
+            echo "splitw -h"
+          fi
+
+          echo "send-keys -t $pcurr \"dmcm ${cmd}\""
+          echo "send-keys -t $pcurr Enter"
+
+          let pcount++
+        done
+      done <<< "$window"
+
+      echo "select-layout \"tiled\""
+      let wcount++
+    done
+  done <<< "$*"
+
+  echo "next-window"
+}
+
+function dmcm_tmux_init(){
+  #cmds=$(dmcm_tmux_generate_commands $@ | tr '\n' ';')
+  dmcm_tmux_generate_commands $@ > /tmp/dmcm.tmux.conf
+  tmux -L dmcm new-session -d \; source-file ~/.tmux.conf\; source-file /tmp/dmcm.tmux.conf
+  tmux -L dmcm attach
+}
+
+dmcm_tmux_init $@
