@@ -2,8 +2,9 @@
 set -u
 
 pushd `dirname $0` > /dev/null
-
 export DMCM_SCRIPTPATH=`pwd -P`
+popd > /dev/null
+
 export DMCM_SERVICE_DIR="/services"
 export DMCM_BASE_DIR="/opt/dmcm-base"
 
@@ -58,6 +59,7 @@ function dmcm_usage(){
   dmcm_out "[options]:"
   echo "  -d,--debug - Run in debug mode"
   echo "  -i,--interactive - Run in interactive mode"
+  echo "  -s,--script - Run commands from script"
   dmcm_out ""
 
   dmcm_out "<actions>:"
@@ -206,7 +208,7 @@ function dmcm(){
   local tokens=
   local sentence=
 
-  local args=`${GETOPT} -o hid -l "help,interactive" -n "dmcm" -- "$@"`
+  local args=`${GETOPT} -o hid -l "help,interactive,debug" -n "dmcm" -- "$@"`
 
   for arg in $args; do
     if [ "$arg" = "--" ]; then
